@@ -15,7 +15,6 @@ class Node
 
   def on_tick
     raise NotImplementedError
-    # puts @tick
   end
 end
 
@@ -130,12 +129,7 @@ class LB < Node
   end
 
   def update_score(u, util)
-    # util = u.utilization
     new_score = 1000 - (100 * util).to_i
-    # if util > 1
-    #   new_score = 1
-    # end
-    # puts "updating weight of #{u.id} to #{new_score}"
     @rr.set(u.id, new_score)
   end
 end
