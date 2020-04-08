@@ -1,6 +1,6 @@
 require_relative 'nodes'
 
-def draw_table(table, clear: true)
+def draw_table(table, clear: true, notes: [])
   header = []
   values = []
 
@@ -15,6 +15,7 @@ def draw_table(table, clear: true)
   values = values.join(", ")
 
   print "\e[H\e[2J" if clear
+  notes.each { |n| puts n }
   puts format(header, *table.map { |c| c[:title] })
   puts format(values, *table.map { |c| c[:value] })
 end
@@ -78,6 +79,8 @@ ticks.to_i.times do |tick|
     { title: "std_dev"     , value: std_dev            , width: 10 , type: :float } ,
     { title: "#overloaded" , value: overloaded_count   , width: 15 , type: :int   } ,
     { title: "%overloaded" , value: overloaded_percent , width: 15 , type: :float } ,
+  ], notes: [
+    "Overloaded = workers with utilization above <avg + 3 standard deviations>"
   ])
 end
 
