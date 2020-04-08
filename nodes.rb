@@ -50,7 +50,10 @@ class Worker < Node
   end
 
   def on_tick
+    remaining_capacity = @capacity
     in_progress.delete_if do |job|
+      remaining_capacity -= 1
+      break false if remaining_capacity <= 0
       job.on_tick(utilization)
     end
   end
