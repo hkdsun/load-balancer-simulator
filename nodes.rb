@@ -17,27 +17,27 @@ class Node
     raise NotImplementedError
     # puts @tick
   end
-
-  def print
-    visual = "@" * [jobs, 42].min
-    puts "#{visual}[ #{@id} ]"
-  end
 end
 
 class Job
   attr_accessor :remaining_dur
 
   def initialize(duration_ticks, on_completion)
+    if duration_ticks <= 0
+      raise "invalid job"
+    end
+
     @remaining_dur = duration_ticks
     @on_completion = on_completion
   end
 
   def on_tick(util)
     @remaining_dur -= 1
-    if @remaining_dur <= 0
-      # puts "completed job"
+    if @remaining_dur == 0
       @on_completion.call(util)
-      true
+      return true
+    elsif @remaining_dur < 0
+      raise "Called completed job"
     else
       false
     end
@@ -51,19 +51,9 @@ class Worker < Node
   end
 
   def on_tick
-    res = []
-    in_progress.each_with_index do |job, i|
-      if i+1 > @capacity
-        res << job
-      else
-        # puts "working on job #{job}, remaining_dur=#{job.remaining_dur}"
-        job_completed = job.on_tick(utilization)
-        unless job_completed
-          res << job
-        end
-      end
+    in_progress.delete_if do |job|
+      job.on_tick(utilization)
     end
-    @in_progress = res
   end
 
   def work_on(job)
@@ -72,6 +62,10 @@ class Worker < Node
 
   def in_progress
     @in_progress ||= []
+  end
+
+  def remove_job(job)
+    in_progress.delete(job)
   end
 
   def utilization
@@ -96,7 +90,7 @@ class LB < Node
 
     rr_nodes = {}
     upstreams.each do |u|
-      rr_nodes[u.id] = 1
+      rr_nodes[u.id] = 1000
     end
     @rr = RRBalancer.new(rr_nodes)
   end
@@ -109,7 +103,7 @@ class LB < Node
       dur = range * rand + @job_dur.first
       on_completion = Proc.new { |util| update_score(u, util) }
 
-      u.work_on(Job.new(dur, on_completion))
+      u.work_on(Job.new(dur.to_i, on_completion))
     end
   end
 
@@ -136,6 +130,12 @@ class LB < Node
   end
 
   def update_score(u, util)
-    @rr.set(u.id, util)
+    # util = u.utilization
+    new_score = 1000 - (100 * util).to_i
+    # if util > 1
+    #   new_score = 1
+    # end
+    # puts "updating weight of #{u.id} to #{new_score}"
+    @rr.set(u.id, new_score)
   end
 end
