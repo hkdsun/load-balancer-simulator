@@ -21,7 +21,7 @@ def draw_table(table, clear: true, notes: [])
   puts format(values, *table.map { |c| c[:value] })
 end
 
-def run_sim(num_workers:, num_lbs:)
+def run_sim(num_workers:, num_lbs:, healthcheck_period_ticks: nil)
   # 700 upstreams per lb
   upstreams = []
   num_workers.times do |i|
@@ -36,7 +36,13 @@ def run_sim(num_workers:, num_lbs:)
   # 17 lbs per cluster
   lbs = []
   num_lbs.times do |i|
-    lbs << LB.new("lb_#{i}", upstreams, jobs_per_tick, LatencyFactory.from_file("latencies.csv"))
+    lbs << LB.new(
+      "lb_#{i}",
+      upstreams,
+      jobs_per_tick,
+      LatencyFactory.from_file("latencies.csv"),
+      healthcheck_period_ticks: healthcheck_period_ticks,
+    )
   end
 
   averages = Hash.new(0)
@@ -49,7 +55,10 @@ def run_sim(num_workers:, num_lbs:)
 
 
     utils = []
-    upstreams.each do |u|
+    upstreams.each_with_index do |u, i|
+      # if i < 50
+      #   puts "#{u} util=#{u.utilization}"
+      # end
       utils << u.utilization
     end
 
@@ -59,6 +68,7 @@ def run_sim(num_workers:, num_lbs:)
     std_dev = Math.sqrt(variance)
 
     p99_util = utils.dup.sort.drop((utils.count*0.99).to_i).first
+    p25_util = utils.dup.sort.drop((utils.count*0.25).to_i).first
 
     overloaded_threshold = avg + std_dev*3
     overloaded_count = utils.count { |u| u > overloaded_threshold }
@@ -69,6 +79,7 @@ def run_sim(num_workers:, num_lbs:)
     averages[:overloaded_percent] += overloaded_percent.to_f
     averages[:overloaded_count] += overloaded_count.to_f
     averages[:p99_util] += p99_util.to_f
+    averages[:p25_util] += p25_util.to_f
     averages[:count] += 1
 
     time = tick.to_f/100
@@ -80,6 +91,7 @@ def run_sim(num_workers:, num_lbs:)
       { title: "#overloaded" , value: overloaded_count     , width: 15 , type: :int   } ,
       { title: "%overloaded" , value: overloaded_percent   , width: 15 , type: :float } ,
       { title: "p99_util" , value: p99_util , width: 15 , type: :float } ,
+      { title: "p25_util" , value: p25_util , width: 15 , type: :float } ,
     ], notes: [
       "Note: overloaded is defined as workers with utilization above <avg + 3 standard deviations> (current_value=#{overloaded_threshold.round(2)})",
       "",
@@ -97,6 +109,10 @@ def run_sim(num_workers:, num_lbs:)
 end
 
 begin
-  run_sim(num_workers: 475, num_lbs: 16)
+  run_sim(
+    num_workers: 475,
+    num_lbs: 16,
+    # healthcheck_period_ticks: 100,
+  )
 rescue Interrupt
 end

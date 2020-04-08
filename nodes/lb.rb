@@ -3,10 +3,11 @@ require_relative '../roundrobin'
 class LB < Node
   MS_PER_TICK = 10
 
-  def initialize(id, upstreams, jobs_per_tick, latency_generator)
+  def initialize(id, upstreams, jobs_per_tick, latency_generator, healthcheck_period_ticks: nil)
     super(id)
     @jobs_per_tick = jobs_per_tick
     @latency_generator = latency_generator
+    @healthcheck_period_ticks = healthcheck_period_ticks
 
     @upstreams = {}
     upstreams.each do |u|
@@ -21,6 +22,8 @@ class LB < Node
   end
 
   def on_tick
+    perform_healthchecks
+
     @jobs_per_tick.times do
       u = least_utilized
 
@@ -34,8 +37,23 @@ class LB < Node
   end
 
   def least_utilized
-    # rr_find
-    actual_least_utilized
+    rr_find
+    # actual_least_utilized
+  end
+
+  def perform_healthchecks
+    return unless @healthcheck_period_ticks
+
+    @healthchecks ||= Hash.new(0)
+    @upstreams.each do |_, u|
+      min_jitter = 0
+      max_jitter = @healthcheck_period_ticks
+      jitter = min_jitter + ((max_jitter - min_jitter) * rand)
+      if (@tick - @healthchecks[u.id] + jitter) > @healthcheck_period_ticks
+        update_score(u, u.utilization)
+        @healthchecks[u.id] = @tick
+      end
+    end
   end
 
   def actual_least_utilized
