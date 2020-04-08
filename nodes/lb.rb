@@ -16,7 +16,7 @@ class LB < Node
 
     rr_nodes = {}
     upstreams.each do |u|
-      rr_nodes[u.id] = 1000
+      rr_nodes[u.id] = 1
     end
     @rr = RRBalancer.new(rr_nodes)
   end
@@ -74,7 +74,11 @@ class LB < Node
   end
 
   def update_score(u, util)
-    new_score = 1000 - (100 * util).to_i
-    @rr.set(u.id, new_score)
+    util = [1.0, util].min
+    new_weight = 100 - (100 * util).to_i
+    new_weight = [0, new_weight].max
+    new_weight = new_weight+1
+    # puts new_weight
+    @rr.set(u.id, new_weight)
   end
 end

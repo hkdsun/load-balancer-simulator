@@ -15,7 +15,7 @@ def draw_table(table, clear: true, notes: [])
   header = header.join(", ")
   values = values.join(", ")
 
-  print "\e[H\e[2J" if clear
+  # print "\e[H\e[2J" if clear
   notes.each { |n| puts n }
   puts format(header, *table.map { |c| c[:title] })
   puts format(values, *table.map { |c| c[:value] })
@@ -112,7 +112,7 @@ begin
   run_sim(
     num_workers: 475,
     num_lbs: 16,
-    # healthcheck_period_ticks: 100,
+    # healthcheck_period_ticks: 10,
   )
 rescue Interrupt
 end
