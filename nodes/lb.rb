@@ -31,8 +31,8 @@ class LB < Node
   end
 
   def least_utilized
-    # rr_find
-    actual_least_utilized
+    rr_find
+    # actual_least_utilized
   end
 
   def actual_least_utilized

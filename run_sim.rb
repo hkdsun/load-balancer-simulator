@@ -20,10 +20,10 @@ def draw_table(table, clear: true, notes: [])
   puts format(values, *table.map { |c| c[:value] })
 end
 
-def run_sim
+def run_sim(num_workers:, num_lbs:)
   # 700 upstreams per lb
   upstreams = []
-  700.times do |i|
+  num_workers.times do |i|
     upstreams << Worker.new("upstream_#{i}", 16)
   end
 
@@ -33,7 +33,7 @@ def run_sim
 
   # 17 lbs per cluster
   lbs = []
-  17.times do |i|
+  num_lbs.times do |i|
     lbs << LB.new("lb_#{i}", upstreams, jobs_per_tick, job_dur)
   end
 
@@ -62,6 +62,8 @@ def run_sim
     variance = sum_squared / (utils.size - 1)
     std_dev = Math.sqrt(variance)
 
+    p99_util = utils.dup.sort.drop((utils.count*0.99).to_i).first
+
     overloaded_threshold = avg + std_dev*3
     overloaded_count = utils.count { |u| u > overloaded_threshold }
     overloaded_percent = overloaded_count / utils.count.to_f
@@ -75,11 +77,12 @@ def run_sim
     time = tick.to_f/100
 
     draw_table([
-      { title: "time"        , value: time               , width: 10 , type: :float } ,
-      { title: "avg"         , value: avg                , width: 10 , type: :float } ,
-      { title: "std_dev"     , value: std_dev            , width: 10 , type: :float } ,
-      { title: "#overloaded" , value: overloaded_count   , width: 15 , type: :int   } ,
-      { title: "%overloaded" , value: overloaded_percent , width: 15 , type: :float } ,
+      { title: "time"        , value: time                 , width: 10 , type: :float } ,
+      { title: "avg"         , value: avg                  , width: 10 , type: :float } ,
+      { title: "std_dev"     , value: std_dev              , width: 10 , type: :float } ,
+      { title: "#overloaded" , value: overloaded_count     , width: 15 , type: :int   } ,
+      { title: "%overloaded" , value: overloaded_percent   , width: 15 , type: :float } ,
+      { title: "p99_util" , value: p99_util , width: 15 , type: :float } ,
     ], notes: [
       "Note: overloaded is defined as workers with utilization above <avg + 3 standard deviations> (current_value=#{overloaded_threshold.round(2)})",
       "",
@@ -98,6 +101,6 @@ def run_sim
 end
 
 begin
-  run_sim
+  run_sim(num_workers: 700, num_lbs: 17)
 rescue Interrupt
 end
