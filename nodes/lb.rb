@@ -1,10 +1,12 @@
 require_relative '../roundrobin'
 
 class LB < Node
-  def initialize(id, upstreams, jobs_per_tick, job_dur)
+  MS_PER_TICK = 10
+
+  def initialize(id, upstreams, jobs_per_tick, latency_generator)
     super(id)
     @jobs_per_tick = jobs_per_tick
-    @job_dur = job_dur
+    @latency_generator = latency_generator
 
     @upstreams = {}
     upstreams.each do |u|
@@ -22,17 +24,18 @@ class LB < Node
     @jobs_per_tick.times do
       u = least_utilized
 
-      range = @job_dur.last - @job_dur.first
-      dur = range * rand + @job_dur.first
+      lat_ms = @latency_generator.next
+      job_dur_ticks = lat_ms / MS_PER_TICK
+
       on_completion = Proc.new { |util| update_score(u, util) }
 
-      u.work_on(Job.new(dur.to_i, on_completion))
+      u.work_on(Job.new(job_dur_ticks, on_completion))
     end
   end
 
   def least_utilized
-    rr_find
-    # actual_least_utilized
+    # rr_find
+    actual_least_utilized
   end
 
   def actual_least_utilized

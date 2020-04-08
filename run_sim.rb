@@ -1,4 +1,5 @@
 require_relative 'nodes'
+require_relative 'latency_factory'
 
 def draw_table(table, clear: true, notes: [])
   header = []
@@ -27,23 +28,18 @@ def run_sim(num_workers:, num_lbs:)
     upstreams << Worker.new("upstream_#{i}", 16)
   end
 
-  # 10 ms per tick
-  jobs_per_tick = 7 # 700 jobs per second per lb
-  job_dur = (20..80) # uniform: 200ms - 20000ms
+  ms_per_tick = 10
+  job_per_second_per_lb = 1000
+  seconds_per_ms = 1/1000.0
+  jobs_per_tick = (ms_per_tick * job_per_second_per_lb * seconds_per_ms).to_i
 
   # 17 lbs per cluster
   lbs = []
   num_lbs.times do |i|
-    lbs << LB.new("lb_#{i}", upstreams, jobs_per_tick, job_dur)
+    lbs << LB.new("lb_#{i}", upstreams, jobs_per_tick, LatencyFactory.from_file("latencies.csv"))
   end
 
-  samples = {
-    avg:                0,
-    std_dev:            0,
-    overloaded_count:   0,
-    overloaded_percent: 0,
-    count:              0,
-  }
+  averages = Hash.new(0)
 
   duration_s = 30
   ticks = duration_s / 0.01
@@ -68,11 +64,12 @@ def run_sim(num_workers:, num_lbs:)
     overloaded_count = utils.count { |u| u > overloaded_threshold }
     overloaded_percent = overloaded_count / utils.count.to_f
 
-    samples[:avg] += avg.to_f
-    samples[:std_dev] += std_dev.to_f
-    samples[:overloaded_percent] += overloaded_percent.to_f
-    samples[:overloaded_count] += overloaded_count.to_f
-    samples[:count] += 1
+    averages[:avg] += avg.to_f
+    averages[:std_dev] += std_dev.to_f
+    averages[:overloaded_percent] += overloaded_percent.to_f
+    averages[:overloaded_count] += overloaded_count.to_f
+    averages[:p99_util] += p99_util.to_f
+    averages[:count] += 1
 
     time = tick.to_f/100
 
@@ -91,16 +88,15 @@ def run_sim(num_workers:, num_lbs:)
 
   puts
   puts "Total Averages"
-  draw_table([
-    { title: "avg"                , value: samples[:avg]/samples[:count]                , width: 20 , type: :float } ,
-    { title: "std_dev"            , value: samples[:std_dev]/samples[:count]            , width: 20 , type: :float } ,
-    { title: "overloaded_count"   , value: samples[:overloaded_count]/samples[:count]   , width: 20 , type: :float } ,
-    { title: "overloaded_percent" , value: samples[:overloaded_percent]/samples[:count] , width: 20 , type: :float } ,
-    { title: "count"              , value: samples[:count]/samples[:count]              , width: 20 , type: :float } ,
-  ], clear: false)
+
+  table = []
+  averages.each do |metric, sum|
+    table << { title: metric, value: sum/averages[:count], width: 20 , type: :float }
+  end
+  draw_table(table, clear: false)
 end
 
 begin
-  run_sim(num_workers: 700, num_lbs: 17)
+  run_sim(num_workers: 475, num_lbs: 16)
 rescue Interrupt
 end
