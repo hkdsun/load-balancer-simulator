@@ -8,7 +8,14 @@ def draw_table(table, clear: true, notes: [])
   values = []
 
   table.each do |col|
-    value_format = col[:type] == :float ? ".2f" : "i"
+    value_format = case col[:type]
+    when :float
+      ".2f"
+    when :int
+      "i"
+    else
+      "s"
+    end
 
     header << "%#{col[:width]}s"
     values << "%#{col[:width]}#{value_format}"
@@ -84,18 +91,36 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, lb_options: {}
     time = tick.to_f/100
 
     draw_table([
-      { title: "time"        , value: time                 , width: 10 , type: :float } ,
-      { title: "avg"         , value: avg                  , width: 10 , type: :float } ,
-      { title: "std_dev"     , value: std_dev              , width: 10 , type: :float } ,
-      { title: "#overloaded" , value: overloaded_count     , width: 15 , type: :int   } ,
-      { title: "%overloaded" , value: overloaded_percent   , width: 15 , type: :float } ,
-      { title: "p99_util" , value: p99_util , width: 15 , type: :float } ,
-      { title: "p25_util" , value: p25_util , width: 15 , type: :float } ,
+      { title: "time"        , value: time               , width: 10 , type: :float } ,
+      { title: "avg"         , value: avg                , width: 10 , type: :float } ,
+      { title: "std_dev"     , value: std_dev            , width: 10 , type: :float } ,
+      { title: "#overloaded" , value: overloaded_count   , width: 15 , type: :int   } ,
+      { title: "%overloaded" , value: overloaded_percent , width: 15 , type: :float } ,
+      { title: "p99_util"    , value: p99_util           , width: 15 , type: :float } ,
+      { title: "p25_util"    , value: p25_util           , width: 15 , type: :float } ,
     ], notes: [
       "Note: overloaded is defined as workers with utilization above <avg + 3 standard deviations> (current_value=#{overloaded_threshold.round(2)})",
       "",
     ])
   end
+
+  puts
+  puts "Simulation Variables:"
+
+  healthcheck_period_ms = if lb_options[:healthcheck_period_ticks]
+      lb_options[:healthcheck_period_ticks] * ms_per_tick
+    else
+      :disabled
+    end
+  lb_algorithm = lb_options[:perfect_balancing] ? :perfect : lb_options[:lb_algorithm]
+
+  draw_table([
+    { title: "num_workers"              , value: num_workers              , width: 15 , type: :int   }    ,
+    { title: "num_lbs"                  , value: num_lbs                  , width: 15 , type: :int   }    ,
+    { title: "jobs_per_second_per_lb"   , value: jobs_per_second_per_lb   , width: 30 , type: :int   }    ,
+    { title: "healthcheck_period_ms" , value: healthcheck_period_ms , width: 30 , type: :string   } ,
+    { title: "lb_algorithm"             , value: lb_algorithm             , width: 30 , type: :string   } ,
+  ], clear: false)
 
   puts
   puts "Total Averages"
@@ -112,19 +137,18 @@ begin
 
   run_sim(
     num_workers: 475,
-    num_lbs: 16,
+    num_lbs: 17,
     jobs_per_second_per_lb: 1000,
-    # healthcheck_period_ticks: 10,
     lb_options: {
-
-      healthcheck_period_ticks: nil,
-      # healthcheck_period_ticks: 10,
+      # healthcheck_period_ticks: nil,
+      healthcheck_period_ticks: 100,
 
       # lb_algorithm: :rr,
       lb_algorithm: :ewma_util,
       # lb_algorithm: :ewma_latency,
 
       perfect_balancing: false,
+      # perfect_balancing: true,
     }
   )
 rescue Interrupt

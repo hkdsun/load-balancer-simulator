@@ -2,7 +2,7 @@ class EWMABalancer
   DEFAULT_DECAY_TIME = 10
   PICK_SET_SIZE = 2
 
-  def initialize(peers, decay_time=DEFAULT_DECAY_TIME, now: ->{ Time.now.to_i })
+  def initialize(peers, decay_time: DEFAULT_DECAY_TIME, now: ->{ Time.now.to_i })
     @decay_time = decay_time
     @peers = peers
     @now = now

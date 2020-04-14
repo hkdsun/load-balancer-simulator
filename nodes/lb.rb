@@ -28,7 +28,7 @@ class LB < Node
     @rr = RRBalancer.new(rr_nodes)
 
     ewma_peers = @workers.keys
-    @ewma = EWMABalancer.new(ewma_peers, now: ->{@tick})
+    @ewma = EWMABalancer.new(ewma_peers, decay_time: 10, now: ->{@tick})
   end
 
   def on_tick
@@ -48,7 +48,7 @@ class LB < Node
 
   def least_utilized
     if @perfect_balancing
-      return currently_least_utilized
+      return current_least_utilized
     end
 
     case @lb_algorithm
