@@ -1,6 +1,8 @@
 require_relative 'nodes'
 require_relative 'latency_factory'
 
+ENABLE_CLEAR_TERM = true
+
 def draw_table(table, clear: true, notes: [])
   header = []
   values = []
@@ -15,33 +17,30 @@ def draw_table(table, clear: true, notes: [])
   header = header.join(", ")
   values = values.join(", ")
 
-  # print "\e[H\e[2J" if clear
+  print "\e[H\e[2J" if ENABLE_CLEAR_TERM && clear
   notes.each { |n| puts n }
   puts format(header, *table.map { |c| c[:title] })
   puts format(values, *table.map { |c| c[:value] })
 end
 
-def run_sim(num_workers:, num_lbs:, healthcheck_period_ticks: nil)
-  # 700 upstreams per lb
-  upstreams = []
+def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, lb_options: {})
+  workers = []
   num_workers.times do |i|
-    upstreams << Worker.new("upstream_#{i}", 16)
+    workers << Worker.new("upstream_#{i}", 16)
   end
 
   ms_per_tick = 10
-  job_per_second_per_lb = 1000
   seconds_per_ms = 1/1000.0
-  jobs_per_tick = (ms_per_tick * job_per_second_per_lb * seconds_per_ms).to_i
+  jobs_per_tick = (ms_per_tick * jobs_per_second_per_lb * seconds_per_ms).to_i
 
-  # 17 lbs per cluster
   lbs = []
   num_lbs.times do |i|
     lbs << LB.new(
       "lb_#{i}",
-      upstreams,
+      workers,
       jobs_per_tick,
       LatencyFactory.from_file("latencies.csv"),
-      healthcheck_period_ticks: healthcheck_period_ticks,
+      **lb_options
     )
   end
 
@@ -51,15 +50,15 @@ def run_sim(num_workers:, num_lbs:, healthcheck_period_ticks: nil)
   ticks = duration_s / 0.01
   ticks.to_i.times do |tick|
     lbs.each { |l| l.tick }
-    upstreams.each { |u| u.tick }
+    workers.each { |worker| worker.tick }
 
 
     utils = []
-    upstreams.each_with_index do |u, i|
+    workers.each_with_index do |worker, i|
       # if i < 50
-      #   puts "#{u} util=#{u.utilization}"
+      #   puts "#{worker} util=#{worker.utilization}"
       # end
-      utils << u.utilization
+      utils << worker.utilization
     end
 
     avg = utils.sum / utils.size.to_f
@@ -109,10 +108,24 @@ def run_sim(num_workers:, num_lbs:, healthcheck_period_ticks: nil)
 end
 
 begin
+  # ENABLE_CLEAR_TERM = false
+
   run_sim(
     num_workers: 475,
     num_lbs: 16,
+    jobs_per_second_per_lb: 1000,
     # healthcheck_period_ticks: 10,
+    lb_options: {
+
+      healthcheck_period_ticks: nil,
+      # healthcheck_period_ticks: 10,
+
+      # lb_algorithm: :rr,
+      lb_algorithm: :ewma_util,
+      # lb_algorithm: :ewma_latency,
+
+      perfect_balancing: false,
+    }
   )
 rescue Interrupt
 end

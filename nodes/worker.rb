@@ -12,11 +12,24 @@ class Worker < Node
         # puts "WARN: worker overloaded"
         break false
       end
-      job.on_tick(utilization)
+
+      completed = job.on_tick(utilization)
+
+      job.response_handler.call({
+        utilization: utilization,
+        latency: @tick - job.first_tick
+      }) if completed
+
+      completed
     end
   end
 
-  def work_on(job)
+  def stats
+    stats ||= Hash.new { {} }
+  end
+
+  def start_job(job)
+    job.first_tick = @tick
     in_progress << job
   end
 

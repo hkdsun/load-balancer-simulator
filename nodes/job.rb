@@ -1,24 +1,20 @@
 class Job < Node
-  attr_accessor :remaining_dur
+  attr_accessor :remaining_dur, :response_handler, :first_tick, :last_tick
 
-  def initialize(duration_ticks, on_completion)
+  def initialize(duration_ticks, response_handler)
     if duration_ticks <= 0
       raise "invalid job"
     end
 
+    @first_tick = nil
+    @last_tick = nil
+
     @remaining_dur = duration_ticks
-    @on_completion = on_completion
+    @response_handler = response_handler
   end
 
   def on_tick(util)
     @remaining_dur -= 1
-    if @remaining_dur == 0
-      @on_completion.call(util)
-      return true
-    elsif @remaining_dur < 0
-      raise "Called completed job"
-    else
-      false
-    end
+    return @remaining_dur == 0
   end
 end

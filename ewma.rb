@@ -22,11 +22,10 @@ class EWMABalancer
   def pick_and_score(peers, k)
     shuffle_peers(peers, k)
 
-    lowest_score_index = 1
+    lowest_score_index = 0
     lowest_score = score(peers[lowest_score_index])
 
-    k.times do |i|
-      i += 1
+    (1...k).each do |i|
       new_score = score(peers[i])
       if new_score < lowest_score
         lowest_score_index, lowest_score = i, new_score
@@ -36,12 +35,13 @@ class EWMABalancer
     return peers[lowest_score_index], lowest_score
   end
 
-  def decay_ewma(ewma, last_touched_at, score, now)
+  def decay_ewma(peer ,ewma, last_touched_at, score, now)
     td = now - last_touched_at
     td = (td > 0) ? td : 0
     weight = Math.exp(-td/@decay_time)
 
     ewma = ewma * weight + score * (1.0 - weight)
+    puts "ewma is less than 0. #{peer} score=#{score} ewma=#{ewma} weight=#{weight}" if ewma < 0
     return ewma
   end
 
@@ -52,10 +52,9 @@ class EWMABalancer
 
   def get_or_update_ewma(peer, score, update)
     ewma = ewma_scores[peer] || 0
-
     now = @now.call
     last_touched_at = ewma_scores_last_touched_at[peer] || 0
-    ewma = decay_ewma(ewma, last_touched_at, score, now)
+    ewma = decay_ewma(peer, ewma, last_touched_at, score, now)
 
     unless update
       return ewma
@@ -74,10 +73,11 @@ class EWMABalancer
       endpoint, _ewma_score = pick_and_score(peer_copy, k)
     end
 
+    # puts "HK-DEBUG chose: #{endpoint}"
     return endpoint
   end
 
-  def set(peer, score)
+  def update_score(peer, score)
     if peer.empty?
       raise "wtf"
     end
@@ -93,30 +93,3 @@ class EWMABalancer
     @ewma_scores_last_touched_at ||= {}
   end
 end
-
-nodes = []
-20.times do |i|
-  nodes << "node_#{i}"
-end
-
-tick = 0
-balancer = EWMABalancer.new(nodes, now: ->{tick})
-
-decision = {}
-2000.times do |i|
-  if i % 3 == 0
-    tick += 1
-  end
-
-  id = balancer.find
-  decision[id] ||= 0
-  decision[id] += 1
-
-  if id == "node_10"
-    balancer.set(id, 10)
-  else
-    balancer.set(id, 1)
-  end
-end
-
-pp decision
