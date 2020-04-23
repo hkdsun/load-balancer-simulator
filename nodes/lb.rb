@@ -40,7 +40,12 @@ class LB < Node
       lat_ms = @latency_generator.next
       job_dur_ticks = lat_ms / MS_PER_TICK
 
-      response_handler = proc { |response| update_score(worker, response) }
+      response_handler = proc { |response|
+        @jobs_completed ||= 0
+        @jobs_completed += 1
+        puts "#{worker}, #{response}, #{@jobs_completed}" if id == "lb_14"
+        update_score(worker, response)
+      }
 
       worker.start_job(Job.new(job_dur_ticks, response_handler))
     end

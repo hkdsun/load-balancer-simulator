@@ -34,6 +34,8 @@ end
 def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_reporter: true, title: "Simulation", lb_options: {})
   puts "                                          Simulation: #{title}".red
 
+  # Initialization
+
   workers = []
   num_workers.times do |i|
     workers << Worker.new("upstream_#{i}", 16)
@@ -58,6 +60,26 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
 
   duration_s = 30
   ticks = duration_s / 0.01
+
+  # Print parameters
+
+  healthcheck_period_ms = if lb_options[:healthcheck_period_ticks]
+      lb_options[:healthcheck_period_ticks] * ms_per_tick
+    else
+      :disabled
+    end
+  lb_algorithm = lb_options[:perfect_balancing] ? :perfect : lb_options[:lb_algorithm]
+
+  draw_table([
+    { title: "num_workers"              , value: num_workers              , width: 15 , type: :int   }    ,
+    { title: "num_lbs"                  , value: num_lbs                  , width: 15 , type: :int   }    ,
+    { title: "jobs_per_second_per_lb"   , value: jobs_per_second_per_lb   , width: 30 , type: :int   }    ,
+    { title: "healthcheck_period_ms" , value: healthcheck_period_ms , width: 30 , type: :string   } ,
+    { title: "lb_algorithm"             , value: lb_algorithm             , width: 30 , type: :string   } ,
+  ], clear: false)
+
+  # Run simulation
+
   ticks.to_i.times do |tick|
     lbs.each { |l| l.tick }
     workers.each { |worker| worker.tick }
@@ -110,21 +132,6 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
     ]) if realtime_reporter
   end
 
-  healthcheck_period_ms = if lb_options[:healthcheck_period_ticks]
-      lb_options[:healthcheck_period_ticks] * ms_per_tick
-    else
-      :disabled
-    end
-  lb_algorithm = lb_options[:perfect_balancing] ? :perfect : lb_options[:lb_algorithm]
-
-  draw_table([
-    { title: "num_workers"              , value: num_workers              , width: 15 , type: :int   }    ,
-    { title: "num_lbs"                  , value: num_lbs                  , width: 15 , type: :int   }    ,
-    { title: "jobs_per_second_per_lb"   , value: jobs_per_second_per_lb   , width: 30 , type: :int   }    ,
-    { title: "healthcheck_period_ms" , value: healthcheck_period_ms , width: 30 , type: :string   } ,
-    { title: "lb_algorithm"             , value: lb_algorithm             , width: 30 , type: :string   } ,
-  ], clear: false)
-
   puts
   puts "                                               Final Averages"
 
@@ -138,9 +145,7 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
   puts
 end
 
-begin
-  # ENABLE_CLEAR_TERM = false
-
+def multi_run
   [
     {
       title: "Latency EWMA (Current Algorithm) without Healthchecking",
@@ -193,5 +198,26 @@ begin
   ].each do |sim|
     run_sim(**sim)
   end
+end
+
+def single_run
+  run_sim(**{
+    title: "Util EWMA without Healthchecking",
+    realtime_reporter: true,
+    num_workers: 475,
+    num_lbs: 17,
+    jobs_per_second_per_lb: 1000,
+    lb_options: {
+      healthcheck_period_ticks: nil,
+      lb_algorithm: :ewma_util,
+      perfect_balancing: false,
+    }
+  })
+end
+
+begin
+  ENABLE_CLEAR_TERM = false
+  # multi_run
+  single_run
 rescue Interrupt
 end
