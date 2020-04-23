@@ -31,7 +31,7 @@ def draw_table(table, clear: true, notes: [])
   puts format(values, *table.map { |c| c[:value] })
 end
 
-def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_reporter: true, title: "Simulation", lb_options: {})
+def run_sim(num_workers:, num_lbs:, ms_per_tick: 10.0, jobs_per_second_per_lb: 1000, realtime_reporter: true, title: "Simulation", lb_options: {})
   puts "                                          Simulation: #{title}".red
 
   # Initialization
@@ -41,9 +41,9 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
     workers << Worker.new("upstream_#{i}", 16)
   end
 
-  ms_per_tick = 10
   seconds_per_ms = 1/1000.0
   jobs_per_tick = (ms_per_tick * jobs_per_second_per_lb * seconds_per_ms).to_i
+  lb_options[:ms_per_tick] = ms_per_tick
 
   lbs = []
   num_lbs.times do |i|
@@ -58,8 +58,8 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
 
   averages = Hash.new(0)
 
-  duration_s = 30
-  ticks = duration_s / 0.01
+  duration_ms = 30_000
+  ticks = duration_ms / ms_per_tick
 
   # Print parameters
 
@@ -115,7 +115,7 @@ def run_sim(num_workers:, num_lbs:, jobs_per_second_per_lb: 1000, realtime_repor
     averages[:p25_util] += p25_util.to_f
     averages[:count] += 1
 
-    time = tick.to_f/100
+    time = tick.to_f * ms_per_tick / 1000
 
     draw_table([
       { title: "time"         , value: time               , width: 10 , type: :float } ,
@@ -207,6 +207,7 @@ def single_run
     num_workers: 475,
     num_lbs: 17,
     jobs_per_second_per_lb: 1000,
+    ms_per_tick: 1,
     lb_options: {
       healthcheck_period_ticks: nil,
       lb_algorithm: :ewma_util,
@@ -216,7 +217,7 @@ def single_run
 end
 
 begin
-  ENABLE_CLEAR_TERM = false
+  # ENABLE_CLEAR_TERM = false
   # multi_run
   single_run
 rescue Interrupt

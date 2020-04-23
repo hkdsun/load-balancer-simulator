@@ -1,13 +1,13 @@
 require_relative '../roundrobin'
 require_relative '../ewma'
+require 'set'
 
 class LB < Node
-  MS_PER_TICK = 10
-
   def initialize(id, workers, jobs_per_tick, latency_generator,
     healthcheck_period_ticks: nil,
     lb_algorithm: :rr,
-    perfect_balancing: false
+    perfect_balancing: false,
+    ms_per_tick: 10.0
   )
     super(id)
     @jobs_per_tick = jobs_per_tick
@@ -15,6 +15,7 @@ class LB < Node
     @healthcheck_period_ticks = healthcheck_period_ticks
     @lb_algorithm = lb_algorithm
     @perfect_balancing = perfect_balancing
+    @ms_per_tick = ms_per_tick
 
     @workers = {}
     workers.each do |worker|
@@ -38,12 +39,19 @@ class LB < Node
       worker = least_utilized
 
       lat_ms = @latency_generator.next
-      job_dur_ticks = lat_ms / MS_PER_TICK
+      job_dur_ticks = lat_ms / @ms_per_tick
 
       response_handler = proc { |response|
         @jobs_completed ||= 0
         @jobs_completed += 1
-        puts "#{worker}, #{response}, #{@jobs_completed}" if id == "lb_14"
+        current_second = (@tick * @ms_per_tick / 1000.0).floor
+
+        @upstreams_contacted ||= Hash.new
+        @upstreams_contacted[current_second] ||= Set.new
+        @upstreams_contacted[current_second].add(worker.id)
+        num_upstreams_in_cur_second = @upstreams_contacted[current_second].size
+
+        puts "#{id}, #{num_upstreams_in_cur_second}, #{worker}, #{response}, #{@jobs_completed}" 
         update_score(worker, response)
       }
 
