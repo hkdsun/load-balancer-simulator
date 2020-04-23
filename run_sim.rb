@@ -36,20 +36,28 @@ def run_sim(num_workers:, num_lbs:, ms_per_tick: 10.0, jobs_per_second_per_lb: 1
 
   # Initialization
 
-  workers = []
-  num_workers.times do |i|
-    workers << Worker.new("upstream_#{i}", 16)
-  end
 
   seconds_per_ms = 1/1000.0
   jobs_per_tick = (ms_per_tick * jobs_per_second_per_lb * seconds_per_ms).to_i
   lb_options[:ms_per_tick] = ms_per_tick
 
+  all_workers = []
+  worker_idx = 0
+  workers_per_lb = num_workers / num_lbs
+
   lbs = []
   num_lbs.times do |i|
+    lb_workers = []
+    workers_per_lb.times do |i|
+      worker =Worker.new("upstream_#{worker_idx}", 16)
+      lb_workers << worker
+      all_workers << worker
+      worker_idx += 1
+    end
+
     lbs << LB.new(
       "lb_#{i}",
-      workers,
+      lb_workers,
       jobs_per_tick,
       LatencyFactory.from_file("latencies.csv"),
       **lb_options
@@ -82,11 +90,11 @@ def run_sim(num_workers:, num_lbs:, ms_per_tick: 10.0, jobs_per_second_per_lb: 1
 
   ticks.to_i.times do |tick|
     lbs.each { |l| l.tick }
-    workers.each { |worker| worker.tick }
+    all_workers.each { |worker| worker.tick }
 
 
     utils = []
-    workers.each_with_index do |worker, i|
+    all_workers.each_with_index do |worker, i|
       # if i < 50
       #   puts "#{worker} util=#{worker.utilization}"
       # end
