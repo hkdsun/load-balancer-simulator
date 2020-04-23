@@ -2,12 +2,15 @@ require_relative '../roundrobin'
 require_relative '../ewma'
 require 'set'
 
+DEBUG = false
+
 class LB < Node
   def initialize(id, workers, jobs_per_tick, latency_generator,
     healthcheck_period_ticks: nil,
     lb_algorithm: :rr,
     perfect_balancing: false,
-    ms_per_tick: 10.0
+    ms_per_tick: 10.0,
+    ewma_decay: 10
   )
     super(id)
     @jobs_per_tick = jobs_per_tick
@@ -29,7 +32,7 @@ class LB < Node
     @rr = RRBalancer.new(rr_nodes)
 
     ewma_peers = @workers.keys
-    @ewma = EWMABalancer.new(ewma_peers, decay_time: 10, now: ->{@tick})
+    @ewma = EWMABalancer.new(ewma_peers, decay_time: ewma_decay, now: ->{@tick})
   end
 
   def on_tick
@@ -51,7 +54,8 @@ class LB < Node
         @upstreams_contacted[current_second].add(worker.id)
         num_upstreams_in_cur_second = @upstreams_contacted[current_second].size
 
-        puts "#{id}, #{num_upstreams_in_cur_second}, #{worker}, #{response}, #{@jobs_completed}" 
+        puts "#{id}, #{num_upstreams_in_cur_second}, #{worker}, #{response}, #{@jobs_completed}" if DEBUG
+
         update_score(worker, response)
       }
 

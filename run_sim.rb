@@ -212,6 +212,7 @@ def single_run
       healthcheck_period_ticks: nil,
       lb_algorithm: :ewma_util,
       perfect_balancing: false,
+      ewma_decay: 10,
     }
   })
 end
