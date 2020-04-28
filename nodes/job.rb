@@ -13,7 +13,7 @@ class Job < Node
     @response_handler = response_handler
   end
 
-  def on_tick(util)
+  def on_tick
     @remaining_dur -= 1
     return @remaining_dur == 0
   end

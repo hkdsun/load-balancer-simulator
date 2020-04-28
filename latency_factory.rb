@@ -92,7 +92,7 @@ def test_factory
   lat = LatencyFactory.from_file
 
   decisions = []
-  500000.times do
+  2000000.times do
     decisions << lat.next
   end
 
@@ -112,3 +112,5 @@ def test_factory
   # pp sorted
   pp stats
 end
+
+# test_factory

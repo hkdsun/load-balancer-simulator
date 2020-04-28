@@ -35,10 +35,19 @@ class LB < Node
     @ewma = EWMABalancer.new(ewma_peers, decay_time: ewma_decay, now: ->{@tick})
   end
 
+  def nextTime(rate)
+    -Math.log(1.0 - rand) / rate;
+  end
+
   def on_tick
     perform_healthchecks
 
-    @jobs_per_tick.times do
+    jitter = 5
+    max_rate = @jobs_per_tick + jitter
+    min_rate = @jobs_per_tick - jitter
+    rate = rand((min_rate..max_rate))
+
+    rate.times do
       worker = least_utilized
 
       lat_ms = @latency_generator.next

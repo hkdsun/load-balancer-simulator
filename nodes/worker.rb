@@ -1,3 +1,5 @@
+require_relative '../ewma_value'
+
 class Worker < Node
   def initialize(id, capacity)
     super(id)
@@ -13,10 +15,10 @@ class Worker < Node
         break false
       end
 
-      completed = job.on_tick(utilization)
+      completed = job.on_tick
 
       job.response_handler.call({
-        utilization: utilization,
+        utilization: ewma_util,
         latency: @tick - job.first_tick
       }) if completed
 
@@ -43,6 +45,11 @@ class Worker < Node
 
   def utilization
     in_progress.size / @capacity.to_f
+  end
+
+  def ewma_util
+    @ewma_util ||= EWMAValue.new(1)
+    @ewma_util.add_sample(utilization)
   end
 
   def to_s

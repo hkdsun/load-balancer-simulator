@@ -207,7 +207,7 @@ def single_run
     num_workers: 475,
     num_lbs: 17,
     jobs_per_second_per_lb: 1000,
-    ms_per_tick: 1,
+    ms_per_tick: 10,
     lb_options: {
       healthcheck_period_ticks: nil,
       lb_algorithm: :ewma_util,
