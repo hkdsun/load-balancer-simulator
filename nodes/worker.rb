@@ -48,8 +48,13 @@ class Worker < Node
   end
 
   def ewma_util
-    @ewma_util ||= EWMAValue.new(1)
-    @ewma_util.add_sample(utilization)
+    @ewma_util ||= EWMAValue.new(5)
+
+    td = @last_sampled_at == nil ? 0 : @tick-@last_sampled_at
+    current_ewma = @ewma_util.add_sample(utilization, td)
+    @last_sampled_at = @tick
+
+    current_ewma
   end
 
   def to_s

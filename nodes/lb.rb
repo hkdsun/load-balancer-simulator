@@ -51,6 +51,7 @@ class LB < Node
       worker = least_utilized
 
       lat_ms = @latency_generator.next
+      # lat_ms = 200
       job_dur_ticks = lat_ms / @ms_per_tick
 
       response_handler = proc { |response|

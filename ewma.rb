@@ -51,17 +51,13 @@ class EWMABalancer
   end
 
   def get_or_update_ewma(peer, score, update)
-    ewma = ewma_scores[peer] || 0
-    now = @now.call
-    last_touched_at = ewma_scores_last_touched_at[peer] || 0
-    ewma = decay_ewma(peer, ewma, last_touched_at, score, now)
-
-    unless update
-      return ewma
+    if update
+      ewma_scores[peer] = score
+      score
+    else
+      score = ewma_scores[peer] || 0
+      score
     end
-
-    store_stats(peer, ewma, now)
-    return ewma
   end
 
   def find
